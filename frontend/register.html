@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Daftar Akun - Family Emergency</title>
+  <link rel="stylesheet" href="login.css" />
+</head>
+<body>
+  <div class="container">
+    <h2>📝 Daftar Akun</h2>
+
+    <form id="registerForm">
+      <input type="text" id="name" placeholder="Nama Pengguna" required />
+      <input type="password" id="password" placeholder="Kata Sandi" required />
+
+      <!-- Tambahkan label agar valid -->
+      <label for="role">Pilih Peran:</label>
+      <select id="role" required>
+        <option value="">-- Pilih Peran --</option>
+        <option value="parent">Orang Tua</option>
+        <option value="child">Anak</option>
+      </select>
+
+      <input type="text" id="family_id" placeholder="Family ID (dari orang tua)" style="display: none;" />
+
+      <button type="submit">Daftar</button>
+      <p>Sudah punya akun? <a href="login.html">Login di sini</a></p>
+    </form>
+  </div>
+
+  <script>
+    const roleSelect = document.getElementById("role");
+    const familyIdInput = document.getElementById("family_id");
+
+    // Tampilkan input family_id jika role adalah "child"
+    roleSelect.addEventListener("change", () => {
+      if (roleSelect.value === "child") {
+        familyIdInput.style.display = "block";
+        familyIdInput.required = true;
+      } else {
+        familyIdInput.style.display = "none";
+        familyIdInput.required = false;
+      }
+    });
+
+    document.getElementById("registerForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const name = document.getElementById("name").value.trim();
+      const password = document.getElementById("password").value.trim();
+      const role = roleSelect.value;
+      const family_id = familyIdInput.value.trim();
+
+      const data = { name, password, role };
+      if (role === "child") data.family_id = family_id;
+
+      try {
+        const res = await fetch("http://localhost:3001/api/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data)
+        });
+
+        const result = await res.json();
+
+        if (res.ok) {
+          alert("✅ Pendaftaran berhasil. Silakan login.");
+          window.location.href = "login.html";
+        } else {
+          alert("❌ " + result.message);
+        }
+      } catch (err) {
+        console.error(err);
+        alert("❌ Kesalahan saat mendaftar");
+      }
+    });
+    const params = new URLSearchParams(window.location.search);
+const prefillFamilyId = params.get('family_id');
+if (prefillFamilyId) {
+  document.getElementById('family_id_input').value = prefillFamilyId;
+  document.getElementById('family_id_input').readOnly = true;
+}
+
+  </script>
+</body>
+</html>

@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#d9534f" />
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="icon" href="/icons/icon-192x192.png" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      font-family: 'Segoe UI', sans-serif;
+      background: #f2f2f2;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      background: #d9534f;
+      color: white;
+      padding: 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    header h1 { font-size: 1.2rem; }
+    #logoutBtn {
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      cursor: pointer;
+      color: white;
+    }
+    main {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1rem;
+    }
+    .info { margin-bottom: 1rem; }
+    #map {
+      min-height: 300px;
+      height: 300px;
+      border-radius: 10px;
+      margin-bottom: 1rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    textarea {
+      width: 100%;
+      height: 100px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      padding: 0.75rem;
+      font-size: 1rem;
+      margin-bottom: 1rem;
+      resize: none;
+    }
+    button#emergencyBtn {
+      display: block;
+      margin: 10px auto;
+      width: 50%;
+      background: #d9534f;
+      color: white;
+      padding: 15px;
+      border: none;
+      border-radius: 8px;
+      font-size: 1.1rem;
+      cursor: pointer;
+      margin-bottom: 1rem;
+    }
+    .share-btn {
+      display: block;
+      margin: 10px auto;
+      background: #007bff;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      font-size: 0.85rem;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .share-btn:hover { background: #0056b3; }
+    button#emergencyBtn:hover { background: #c9302c; }
+    #historyList { padding-left: 1rem; }
+    li { margin-bottom: 5px; font-size: 0.95rem; }
+    .cancel-btn {
+      display: block;
+      margin: 10px auto;
+      width: 50%;
+      background: #5cb85c;
+      color: white;
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      margin-top: 10px;
+      cursor: pointer;
+    }
+    #searchContainer {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 1rem;
+    }
+    #searchInput {
+      padding: 8px;
+      border-radius: 4px;
+      font-size: 1rem;
+      margin-right: 10px;
+      border: 1px solid #ccc;
+    }
+    #searchBtn {
+      padding: 8px 12px;
+      background: #007bff;
+      color: white;
+      font-size: 1rem;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    #searchBtn:hover {
+      background: #0056b3;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1><i class="fas fa-exclamation-triangle"></i> Darurat Keluarga</h1>
+    <button id="logoutBtn" title="Logout" type="button">
+      <i class="fas fa-sign-out-alt"></i>
+    </button>
+  </header>
+
+  <main>
+    <div class="info">
+      <div id="greeting"></div>
+      <div id="familyCode" style="color: #666;"></div>
+      <button id="shareLinkBtn" class="share-btn" type="button">🔗 Bagikan Link ke Keluarga</button>
+    </div>
+
+    <div id="searchContainer">
+      <input type="text" id="searchInput" placeholder="Cari lokasi..." />
+      <button id="searchBtn">Cari Lokasi</button>
+    </div>
+
+    <div id="map"></div>
+
+    <textarea id="message" placeholder="(Opsional) Jelaskan keadaan darurat kamu..."></textarea>
+
+    <button id="emergencyBtn" type="button">🚨 Kirim Darurat Sekarang</button>
+
+    <div class="history-container">
+      <button id="toggleHistoryBtn" class="cancel-btn" type="button">📜 Lihat Riwayat Darurat</button>
+      <div id="historySection" style="display: none; margin-top: 10px;">
+        <ul id="historyList"></ul>
+      </div>
+    </div>
+  </main>
+
+  <audio id="alertSound" src="air-raid-siren-225303.mp3" preload="auto"></audio>
+
+  <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script>
+    const token = localStorage.getItem("token");
+    const userData = JSON.parse(localStorage.getItem("user"));
+    if (!token || !userData) window.location.href = "login.html";
+
+    document.getElementById("greeting").innerText = `👋 Halo, ${userData.name || "Pengguna"}!`;
+    document.getElementById("familyCode").innerText = `🆔 Kode Keluarga: ${userData.family_id}`;
+
+    const socket = io('http://localhost:3001');
+    socket.on("connect", () => {
+      console.log("🟢 Socket connected:", socket.id);
+      socket.emit("join_family", userData.family_id);
+    });
+
+    let latitude, longitude, map, marker;
+    const familyMarkers = [];
+    const familyLocationMarkers = {};
+
+    map = L.map('map').setView([-6.2, 106.8], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        latitude = pos.coords.latitude;
+        longitude = pos.coords.longitude;
+        map.setView([latitude, longitude], 16);
+        marker = L.marker([latitude, longitude]).addTo(map);
+        marker.bindPopup(`📍 Lokasi Anda (${userData.name})`).openPopup();
+        setTimeout(() => map.invalidateSize(), 200);
+      },
+      (err) => alert("❌ Gagal mengambil lokasi: " + err.message),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+
+    function trackLocationRealtime() {
+      setInterval(() => {
+        navigator.geolocation.getCurrentPosition((position) => {
+          const { latitude, longitude } = position.coords;
+          socket.emit("update_location", {
+            user_id: userData.id,
+            name: userData.name,
+            family_id: userData.family_id,
+            latitude,
+            longitude
+          });
+        }, (err) => {
+          console.warn("Gagal mengambil lokasi realtime:", err.message);
+        });
+      }, 10000);
+    }
+
+    trackLocationRealtime();
+
+    let panicInterval = null;
+
+    document.getElementById('emergencyBtn').addEventListener('click', async () => {
+      if (!latitude || !longitude) {
+        alert("📍 Lokasi belum siap!");
+        return;
+      }
+
+      const user_id = userData.id;
+      const additionalMessage = document.getElementById('message').value.trim();
+      const message = additionalMessage ? `🔴 Darurat: ${additionalMessage}` : "🔴 Tombol darurat ditekan! (Panic Mode Aktif)";
+
+      try {
+        const res = await fetch('http://localhost:3001/api/alerts', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + token
+          },
+          body: JSON.stringify({ user_id, message, latitude, longitude })
+        });
+
+        if (res.ok) {
+          document.getElementById('alertSound').play();
+          alert('🚨 Panic Mode aktif. Lokasi akan dikirim setiap 10 detik.');
+          document.getElementById('message').value = '';
+
+          panicInterval = setInterval(() => {
+            navigator.geolocation.getCurrentPosition((pos) => {
+              fetch('http://localhost:3001/api/alerts/panic', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': 'Bearer ' + token
+                },
+                body: JSON.stringify({
+                  user_id,
+                  latitude: pos.coords.latitude,
+                  longitude: pos.coords.longitude
+                })
+              });
+            });
+          }, 10000);
+
+          const btn = document.getElementById('emergencyBtn');
+          btn.disabled = true;
+          btn.textContent = "🛑 Panic Mode Aktif";
+
+          const cancelBtn = document.createElement('button');
+          cancelBtn.textContent = "🟢 Matikan Panic Mode";
+          cancelBtn.className = "cancel-btn";
+          cancelBtn.type = "button";
+          cancelBtn.onclick = () => {
+            clearInterval(panicInterval);
+            panicInterval = null;
+            cancelBtn.remove();
+            btn.disabled = false;
+            btn.textContent = "🚨 Kirim Darurat Sekarang";
+            alert("✅ Panic Mode dimatikan.");
+          };
+          document.querySelector('main').appendChild(cancelBtn);
+
+          fetchHistory();
+        } else {
+          alert('❌ Gagal mengirim pesan darurat!');
+        }
+      } catch (err) {
+        alert('❌ Kesalahan jaringan saat mengirim darurat.');
+      }
+    });
+
+    async function fetchHistory() {
+      try {
+        const res = await fetch('http://localhost:3001/api/alerts', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const data = await res.json();
+        const historyList = document.getElementById('historyList');
+        historyList.innerHTML = '';
+        data.forEach((alert) => {
+          const li = document.createElement('li');
+          li.textContent = `🚨 ${alert.message} at ${new Date(alert.timestamp).toLocaleString()}`;
+          historyList.appendChild(li);
+        });
+      } catch (err) {
+        alert("❌ Gagal memuat riwayat darurat!");
+      }
+    }
+
+    document.getElementById('toggleHistoryBtn').addEventListener('click', () => {
+      const historySection = document.getElementById('historySection');
+      historySection.style.display = historySection.style.display === 'none' ? 'block' : 'none';
+    });
+
+    document.getElementById('searchBtn').addEventListener('click', () => {
+      const query = document.getElementById('searchInput').value;
+      if (!query) {
+        alert("🧐 Masukkan pencarian terlebih dahulu!");
+        return;
+      }
+
+      fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.length > 0) {
+            const lat = parseFloat(data[0].lat);
+            const lon = parseFloat(data[0].lon);
+            map.setView([lat, lon], 16);
+            marker.setLatLng([lat, lon]);
+          } else {
+            alert("⚠️ Lokasi tidak ditemukan!");
+          }
+        })
+        .catch(err => {
+          console.error("Error:", err);
+          alert("❌ Gagal melakukan pencarian lokasi.");
+        });
+    });
+  </script>
+</body>
+</html>

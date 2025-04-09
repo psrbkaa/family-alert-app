@@ -1,0 +1,132 @@
+:root {
+  --bg-light: #f3f4f6;
+  --bg-dark: #1f2937;
+  --text-light: #111827;
+  --text-dark: #f9fafb;
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --card-bg-light: #ffffff;
+  --card-bg-dark: #111827;
+  --input-bg-light: #ffffff;
+  --input-bg-dark: #374151;
+  --border-light: #d1d5db;
+  --border-dark: #4b5563;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Segoe UI', sans-serif;
+  background: var(--bg-light);
+  color: var(--text-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background: var(--bg-dark);
+    color: var(--text-dark);
+  }
+}
+
+.container {
+  background: var(--card-bg-light);
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.08);
+  width: 90%;
+  max-width: 400px;
+  text-align: center;
+  animation: fadeIn 0.6s ease;
+  transition: background 0.3s ease;
+}
+
+@media (prefers-color-scheme: dark) {
+  .container {
+    background: var(--card-bg-dark);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+h1, h2 {
+  margin-bottom: 1.5rem;
+  font-size: 1.8rem;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+}
+
+form input,
+form select {
+  width: 90%;
+  padding: 0.75rem;
+  margin-bottom: 1rem;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  font-size: 1rem;
+  background-color: var(--input-bg-light);
+  color: inherit;
+  transition: all 0.3s ease;
+}
+
+@media (prefers-color-scheme: dark) {
+  form input,
+  form select {
+    background-color: var(--input-bg-dark);
+    border: 1px solid var(--border-dark);
+    color: var(--text-dark);
+  }
+}
+
+form label {
+  text-align: left;
+  font-size: 0.95rem;
+  margin-bottom: 0.25rem;
+}
+
+form button {
+  width: 100%;
+  padding: 0.75rem;
+  background-color: var(--primary);
+  color: white;
+  font-size: 1rem;
+  font-weight: 500;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+form button:hover {
+  background-color: var(--primary-hover);
+}
+
+p {
+  margin-top: 1rem;
+  font-size: 0.95rem;
+}
+
+a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}

@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Login Keluarga Darurat</title>
+  <link rel="stylesheet" href="login.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>🔐 Login</h1>
+
+    <form id="loginForm">
+      <input type="text" id="name" placeholder="Nama pengguna" required /><br>
+      <input type="password" id="password" placeholder="Kata sandi" required /><br>
+      <button type="submit">Login</button>
+    </form>
+
+    <p>Belum punya akun? <a href="register.html">Daftar di sini</a></p>
+  </div>
+
+  <script>
+    document.getElementById("loginForm").addEventListener("submit", async function (e) {
+      e.preventDefault();
+
+      const name = document.getElementById("name").value.trim();
+      const password = document.getElementById("password").value.trim();
+
+      if (!name || !password) {
+        alert("Mohon isi semua field.");
+        return;
+      }
+
+      try {
+        const res = await fetch("http://localhost:3001/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, password })
+        });
+
+        const contentType = res.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          const data = await res.json();
+
+          if (res.ok) {
+            localStorage.setItem("token", data.token);
+            localStorage.setItem("user", JSON.stringify(data.user));
+            window.location.href = "index.html";
+          } else {
+            alert(data.message || "Login gagal");
+          }
+        } else {
+          const text = await res.text();
+          console.error("Respon bukan JSON:", text);
+          alert("Terjadi kesalahan tak terduga saat login.");
+        }
+
+      } catch (err) {
+        console.error("❌ Error saat login:", err);
+        alert("Terjadi kesalahan saat login.");
+      }
+    });
+  </script>
+</body>
+</html>
