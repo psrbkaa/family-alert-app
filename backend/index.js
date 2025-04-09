@@ -78,8 +78,8 @@ io.on("connection", (socket) => {
   });
 });
 
-// Jalankan server
-const PORT = 3001;
+// Gunakan port dinamis yang diberikan oleh Railway
+const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
-  console.log(`🚀 Server jalan di http://localhost:${PORT}`);
+  console.log(`🚀 Server berjalan di http://localhost:${PORT}`);
 });
