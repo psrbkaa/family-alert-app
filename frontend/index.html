@@ -2,13 +2,17 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Family Emergency Alert</title>
+
+  <!-- PWA Support -->
+  <link rel="icon" href="icon.png" type="image/png" />
   <meta name="theme-color" content="#d9534f" />
-  <link rel="manifest" href="/manifest.json" />
-  <link rel="icon" href="/icons/icon-192x192.png" />
+  <link rel="manifest" href="manifest.json" />
+
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body {
@@ -98,30 +102,6 @@
       margin-top: 10px;
       cursor: pointer;
     }
-    #searchContainer {
-      display: flex;
-      justify-content: center;
-      margin-bottom: 1rem;
-    }
-    #searchInput {
-      padding: 8px;
-      border-radius: 4px;
-      font-size: 1rem;
-      margin-right: 10px;
-      border: 1px solid #ccc;
-    }
-    #searchBtn {
-      padding: 8px 12px;
-      background: #007bff;
-      color: white;
-      font-size: 1rem;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-    #searchBtn:hover {
-      background: #0056b3;
-    }
   </style>
 </head>
 <body>
@@ -137,11 +117,6 @@
       <div id="greeting"></div>
       <div id="familyCode" style="color: #666;"></div>
       <button id="shareLinkBtn" class="share-btn" type="button">🔗 Bagikan Link ke Keluarga</button>
-    </div>
-
-    <div id="searchContainer">
-      <input type="text" id="searchInput" placeholder="Cari lokasi..." />
-      <button id="searchBtn">Cari Lokasi</button>
     </div>
 
     <div id="map"></div>
@@ -268,73 +243,62 @@
           const cancelBtn = document.createElement('button');
           cancelBtn.textContent = "🟢 Matikan Panic Mode";
           cancelBtn.className = "cancel-btn";
-          cancelBtn.type = "button";
-          cancelBtn.onclick = () => {
+          cancelBtn.addEventListener('click', () => {
             clearInterval(panicInterval);
             panicInterval = null;
-            cancelBtn.remove();
             btn.disabled = false;
             btn.textContent = "🚨 Kirim Darurat Sekarang";
-            alert("✅ Panic Mode dimatikan.");
-          };
+            cancelBtn.remove();
+          });
           document.querySelector('main').appendChild(cancelBtn);
-
-          fetchHistory();
         } else {
-          alert('❌ Gagal mengirim pesan darurat!');
+          throw new Error('Gagal mengirim alert.');
         }
       } catch (err) {
-        alert('❌ Kesalahan jaringan saat mengirim darurat.');
+        alert('❌ Error: ' + err.message);
       }
     });
 
-    async function fetchHistory() {
-      try {
-        const res = await fetch('http://localhost:3001/api/alerts', {
-          headers: { 'Authorization': 'Bearer ' + token }
-        });
-        const data = await res.json();
-        const historyList = document.getElementById('historyList');
-        historyList.innerHTML = '';
-        data.forEach((alert) => {
-          const li = document.createElement('li');
-          li.textContent = `🚨 ${alert.message} at ${new Date(alert.timestamp).toLocaleString()}`;
-          historyList.appendChild(li);
-        });
-      } catch (err) {
-        alert("❌ Gagal memuat riwayat darurat!");
+    document.getElementById('logoutBtn').addEventListener('click', () => {
+      localStorage.clear();
+      window.location.href = 'login.html';
+    });
+
+    socket.on("update_location", (data) => {
+      const { user_id, name, latitude, longitude } = data;
+      if (user_id !== userData.id) {
+        if (familyLocationMarkers[user_id]) {
+          familyLocationMarkers[user_id].setLatLng([latitude, longitude]);
+        } else {
+          const newMarker = L.marker([latitude, longitude]).addTo(map);
+          newMarker.bindPopup(`${name} - ${user_id}`).openPopup();
+          familyLocationMarkers[user_id] = newMarker;
+        }
       }
+    });
+
+    document.getElementById("toggleHistoryBtn").addEventListener("click", () => {
+      const historySection = document.getElementById("historySection");
+      historySection.style.display = historySection.style.display === "none" ? "block" : "none";
+    });
+
+    document.getElementById("shareLinkBtn").addEventListener("click", () => {
+      navigator.clipboard.writeText(window.location.href);
+      alert("📋 Link ke keluarga telah disalin!");
+    });
+
+    // Register Service Worker
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/service-worker.js')
+          .then((registration) => {
+            console.log('Service Worker terdaftar dengan sukses:', registration);
+          })
+          .catch((error) => {
+            console.log('Pendaftaran Service Worker gagal:', error);
+          });
+      });
     }
-
-    document.getElementById('toggleHistoryBtn').addEventListener('click', () => {
-      const historySection = document.getElementById('historySection');
-      historySection.style.display = historySection.style.display === 'none' ? 'block' : 'none';
-    });
-
-    document.getElementById('searchBtn').addEventListener('click', () => {
-      const query = document.getElementById('searchInput').value;
-      if (!query) {
-        alert("🧐 Masukkan pencarian terlebih dahulu!");
-        return;
-      }
-
-      fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.length > 0) {
-            const lat = parseFloat(data[0].lat);
-            const lon = parseFloat(data[0].lon);
-            map.setView([lat, lon], 16);
-            marker.setLatLng([lat, lon]);
-          } else {
-            alert("⚠️ Lokasi tidak ditemukan!");
-          }
-        })
-        .catch(err => {
-          console.error("Error:", err);
-          alert("❌ Gagal melakukan pencarian lokasi.");
-        });
-    });
   </script>
 </body>
 </html>

@@ -1,11 +1,11 @@
 {
-    "name": "Family Alert",
-    "short_name": "Alert",
-    "start_url": "/frontend/index.html",
+    "name": "Family Emergency Alert System",
+    "short_name": "Family Alert",
+    "description": "Aplikasi darurat untuk keluarga dengan fitur pelacakan lokasi dan pengiriman pesan darurat.",
+    "start_url": "/login.html", 
     "display": "standalone",
     "background_color": "#ffffff",
     "theme_color": "#d9534f",
-    "orientation": "portrait",
     "icons": [
       {
         "src": "/icons/icon-192.png",
